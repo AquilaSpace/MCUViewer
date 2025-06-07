@@ -17,7 +17,7 @@
 std::atomic<bool> done = false;
 std::mutex mtx;
 std::shared_ptr<spdlog::logger> logger;
-CLI::App app{"MCUViewer"};
+CLI::App app{"MCUViewer - Special Edition"};
 
 void prepareLogger();
 void prepareCLIParser(bool& debug, std::string& projectPath);
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 	else
 		logger->set_level(spdlog::level::info);
 
-	logger->info("Starting MCUViewer!");
+	logger->info("Starting MCUViewer - Special Edition!");
 	logger->info("Version: {}.{}.{}", MCUVIEWER_VERSION_MAJOR, MCUVIEWER_VERSION_MINOR, MCUVIEWER_VERSION_REVISION);
 	logger->info("Commit hash {}", GIT_HASH);
 
@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 	{
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
-	logger->info("Closing MCUViewer!");
+	logger->info("Closing MCUViewer - Special Edition!");
 	logger->flush();
 	spdlog::shutdown();
 	return 0;

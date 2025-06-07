@@ -63,7 +63,7 @@ void Gui::mainThread(std::string externalPath)
 	if (!glfwInit())
 		return;
 
-	GLFWwindow* window = glfwCreateWindow(1500, 1000, (std::string("MCUViewer | ") + projectConfigPath).c_str(), NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(1500, 1000, (std::string("MCUViewer - Special Edition  ") + projectConfigPath).c_str(), NULL, NULL);
 	if (window == NULL)
 		return;
 	glfwMakeContextCurrent(window);
@@ -139,7 +139,7 @@ void Gui::mainThread(std::string externalPath)
 		else
 			glfwSwapInterval(4);
 
-		glfwSetWindowTitle(window, (std::string("MCUViewer - ") + projectConfigPath).c_str());
+		glfwSetWindowTitle(window, (std::string("MCUViewer - Special Edition  ") + projectConfigPath).c_str());
 		glfwPollEvents();
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
