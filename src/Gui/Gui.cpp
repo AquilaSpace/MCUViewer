@@ -16,6 +16,10 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#ifdef USE_EMBEDDED_FONT
+#include "font_data.h"
+#endif
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -77,7 +81,19 @@ void Gui::mainThread(std::string externalPath)
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.Fonts->AddFontDefault(&cfg);
+
+#ifdef USE_EMBEDDED_FONT
+	extern unsigned char font_ttf[];
+	extern unsigned int font_ttf_len;
+	io.Fonts->AddFontFromMemoryTTF((void*)font_ttf, font_ttf_len, 15.0f * GuiHelper::contentScale);
+#else
+	// Load custom font
+	if (access("font.ttf", F_OK) == 0)
+		io.Fonts->AddFontFromFileTTF("font.ttf", 15.0f * GuiHelper::contentScale);
+	else
+		io.Fonts->AddFontDefault(&cfg);
+#endif
+	
 	io.FontGlobalScale = 1.0f;
 	ImGui::GetPlatformIO().Platform_LocaleDecimalPoint = *localeconv()->decimal_point;
 
@@ -231,7 +247,7 @@ void Gui::drawMenu()
 		if (ImGui::MenuItem("Save", "Ctrl+S", false, (!projectConfigPath.empty())))
 			saveProject();
 
-		if (ImGui::MenuItem("Save As.."))
+		if (ImGui::MenuItem("Save As"))
 			saveProjectAs();
 
 		if (ImGui::MenuItem("Quit", NULL, nullptr, active))
@@ -239,21 +255,10 @@ void Gui::drawMenu()
 
 		ImGui::EndMenu();
 	}
-	if (ImGui::BeginMenu("Options"))
-	{
-		ImGui::MenuItem("Acquisition settings...", NULL, &showAcqusitionSettingsWindow, active);
-		ImGui::EndMenu();
-	}
-	if (ImGui::BeginMenu("Window"))
-	{
-		ImGui::MenuItem("Preferences", NULL, &showPreferencesWindow, active);
-		ImGui::EndMenu();
-	}
-	if (ImGui::BeginMenu("Help"))
-	{
-		ImGui::MenuItem("About", NULL, &showAboutWindow, active);
-		ImGui::EndMenu();
-	}
+
+	ImGui::MenuItem("Acquisition setting", NULL, &showAcqusitionSettingsWindow, active);
+	ImGui::MenuItem("Preferences", NULL, &showPreferencesWindow, active);
+	ImGui::MenuItem("About", NULL, &showAboutWindow, active);
 
 	if (activeView == ActiveViewType::VarViewer)
 	{

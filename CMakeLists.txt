@@ -221,12 +221,11 @@ target_include_directories(${EXECUTABLE} SYSTEM PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/CLI11/inc/)
 
 if(APPLE)
-    include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${STLINK_INCLUDE_DIRS})
-    target_link_libraries(${EXECUTABLE} ${STLINK_MACOS} ${LIBUSB_LIBRARY} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} spdlog::spdlog pthread dl glfw nfd)
+    target_link_libraries(${EXECUTABLE} PRIVATE ${STLINK_MACOS} ${LIBUSB_LIBRARY} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} spdlog::spdlog pthread dl glfw nfd)
 elseif(UNIX)
-    target_link_libraries(${EXECUTABLE} ${STLINK_LINUX} ${LIBUSB_LIBRARY} ${JLINK_LINUX} spdlog::spdlog pthread dl GL glfw nfd)
+    target_link_libraries(${EXECUTABLE} PRIVATE ${STLINK_LINUX} ${LIBUSB_LIBRARY} ${JLINK_LINUX} spdlog::spdlog pthread dl GL glfw nfd)
 elseif(WIN32)
-    target_link_libraries(${EXECUTABLE} ${GLFW3_WINDOWS} ${STLINK_WINDOWS} ${LIBUSB_WINDOWS} ${SPDLOG_WINDOWS} ${JLINK_WINDOWS} -static ssp opengl32 nfd -static-libstdc++ -static-libgcc)
+    target_link_libraries(${EXECUTABLE} PRIVATE ${GLFW3_WINDOWS} ${STLINK_WINDOWS} ${LIBUSB_WINDOWS} ${SPDLOG_WINDOWS} ${JLINK_WINDOWS} -static ssp opengl32 nfd -static-libstdc++ -static-libgcc)
 endif()
 
 if(WIN32)
@@ -304,3 +303,46 @@ set(CPACK_ALL_INSTALL_TYPES Full Developer)
 set(CPACK_COMPONENT_APPLICATIONS_INSTALL_TYPES Full)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/launch/install/Unix/postinst")
 include(CPack)
+
+if(UNIX AND NOT APPLE)
+    find_package(Threads REQUIRED)
+    target_link_libraries(MCUViewer PRIVATE Threads::Threads)
+endif()
+
+# Embed font file
+find_program(XXD_EXECUTABLE xxd)
+if(XXD_EXECUTABLE)
+    message(STATUS "Found xxd, embedding font")
+    set(FONT_FILE ${CMAKE_SOURCE_DIR}/resources/font.ttf)
+    set(FONT_HEADER ${CMAKE_CURRENT_BINARY_DIR}/font_data.h)
+    set(FONT_IN_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/font.ttf)
+
+    add_custom_command(
+        OUTPUT ${FONT_IN_BUILD_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${FONT_FILE} ${FONT_IN_BUILD_DIR}
+        DEPENDS ${FONT_FILE}
+    )
+
+    # Run xxd from the build dir to get a clean symbol name 'font_ttf'
+    add_custom_command(
+        OUTPUT ${FONT_HEADER}
+        COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_BINARY_DIR} xxd -i font.ttf font_data.h
+        DEPENDS ${FONT_IN_BUILD_DIR}
+        COMMENT "Embedding font file"
+    )
+
+    add_custom_target(EmbedFont ALL DEPENDS ${FONT_HEADER})
+    add_dependencies(MCUViewer EmbedFont)
+    target_include_directories(MCUViewer PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    target_compile_definitions(MCUViewer PRIVATE USE_EMBEDDED_FONT)
+else()
+    message(STATUS "xxd not found, will not embed font. Will load from file.")
+    # For non-embedded font, we need to make sure it's available next to the executable
+    install(FILES ${CMAKE_SOURCE_DIR}/resources/font.ttf DESTINATION bin)
+endif()
+
+install(TARGETS MCUViewer
+    RUNTIME DESTINATION bin
+)
+
+target_include_directories(MCUViewer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
