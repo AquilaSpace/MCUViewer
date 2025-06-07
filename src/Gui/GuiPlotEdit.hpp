@@ -5,6 +5,7 @@
 #include "GuiSelectVariable.hpp"
 #include "Plot.hpp"
 #include "PlotGroupHandler.hpp"
+#include "PlotHandler.hpp"
 #include "Popup.hpp"
 #include "imgui.h"
 
@@ -114,9 +115,38 @@ class PlotEditWindow
 			if (ImGui::Button("select...", ImVec2(65 * GuiHelper::contentScale, 19 * GuiHelper::contentScale)))
 				selectVariableWindow->setShowState(true);
 		}
+
+		// Add axis limits controls
+		ImGui::Separator();
+		GuiHelper::drawCenteredText("Axis Limits");
+		ImGui::Separator();
+
+		drawAxisLimits("X", editedPlot->xAxisLimits);
+		drawAxisLimits("Y", editedPlot->yAxisLimits);
 	}
 
    private:
+	void drawAxisLimits(const char* axis, Plot::AxisLimits& limits)
+	{
+		GuiHelper::drawTextAlignedToSize(std::string(axis) + "-axis:", alignment);
+		ImGui::SameLine();
+		ImGui::Text("auto-fit:");
+		ImGui::SameLine();
+		ImGui::Checkbox(std::string("##" + std::string(axis) + "_auto").c_str(), &limits.autoFit);
+		ImGui::SameLine();
+		ImGui::Text("min:");
+		ImGui::SameLine();
+		ImGui::BeginDisabled(limits.autoFit);
+		ImGui::SetNextItemWidth(80 * GuiHelper::contentScale);
+		ImGui::InputDouble(std::string("##" + std::string(axis) + "_min").c_str(), &limits.min, 0, 0, "%.3f");
+		ImGui::SameLine();
+		ImGui::Text("max:");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(80 * GuiHelper::contentScale);
+		ImGui::InputDouble(std::string("##" + std::string(axis) + "_max").c_str(), &limits.max, 0, 0, "%.3f");
+		ImGui::EndDisabled();
+	}
+
 	/**
 	 * @brief Text alignemnt in front of the input fields
 	 *

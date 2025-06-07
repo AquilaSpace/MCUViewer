@@ -96,11 +96,20 @@ class Plot
 		double value;
 	};
 
+	struct AxisLimits {
+		bool autoFit = true;
+		double min = 0.0;
+		double max = 1.0;
+	};
+
 	Marker markerX0{};
 	Marker markerX1{};
 	Marker trigger{};
 
 	DragRect stats{};
+
+	AxisLimits xAxisLimits{};
+	AxisLimits yAxisLimits{};
 
 	explicit Plot(const std::string& name);
 	void setName(const std::string& newName);

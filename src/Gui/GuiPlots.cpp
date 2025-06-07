@@ -129,18 +129,32 @@ void Gui::drawPlotCurve(std::shared_ptr<Plot> plot)
 		if (viewerDataHandler->getState() == DataHandlerBase::State::RUN)
 		{
 			ViewerDataHandler::Settings settings = viewerDataHandler->getSettings();
-			ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
-			ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
-			const double viewportWidth = (1.0 / viewerDataHandler->getAverageSamplingFrequency()) * settings.maxViewportPoints;
-			const double min = *time.getLastElement() < viewportWidth ? 0.0f : *time.getLastElement() - viewportWidth;
-			const double max = min == 0.0f ? *time.getLastElement() : min + viewportWidth;
-			ImPlot::SetupAxisLimits(ImAxis_X1, min, max, ImPlotCond_Always);
+			
+			if (plot->xAxisLimits.autoFit) {
+				ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
+				ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
+				const double viewportWidth = (1.0 / viewerDataHandler->getAverageSamplingFrequency()) * settings.maxViewportPoints;
+				const double min = *time.getLastElement() < viewportWidth ? 0.0f : *time.getLastElement() - viewportWidth;
+				const double max = min == 0.0f ? *time.getLastElement() : min + viewportWidth;
+				ImPlot::SetupAxisLimits(ImAxis_X1, min, max, ImPlotCond_Always);
+			} else {
+				ImPlot::SetupAxis(ImAxis_Y1, NULL, 0);
+				ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
+				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
+				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
+			}
 		}
 		else
 		{
-			ImPlot::SetupAxes("time[s]", NULL, 0, 0);
-			ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
-			ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
+			if (plot->xAxisLimits.autoFit) {
+				ImPlot::SetupAxes("time[s]", NULL, 0, 0);
+				ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
+				ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
+			} else {
+				ImPlot::SetupAxes("time[s]", NULL, 0, 0);
+				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
+				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
+			}
 		}
 
 		plot->setIsHovered(ImPlot::IsPlotHovered());

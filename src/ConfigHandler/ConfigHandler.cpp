@@ -128,6 +128,20 @@ void ConfigHandler::loadPlots()
 			plotHandler->addPlot(plotName);
 			auto plot = plotHandler->getPlot(plotName);
 			plot->setType(type);
+
+			// Load axis limits
+			plot->xAxisLimits.autoFit = ini->get(sectionName).get("x_axis_auto_fit") == "true";
+			plot->yAxisLimits.autoFit = ini->get(sectionName).get("y_axis_auto_fit") == "true";
+			
+			if (!plot->xAxisLimits.autoFit) {
+				plot->xAxisLimits.min = std::stod(ini->get(sectionName).get("x_axis_min"));
+				plot->xAxisLimits.max = std::stod(ini->get(sectionName).get("x_axis_max"));
+			}
+			if (!plot->yAxisLimits.autoFit) {
+				plot->yAxisLimits.min = std::stod(ini->get(sectionName).get("y_axis_min"));
+				plot->yAxisLimits.max = std::stod(ini->get(sectionName).get("y_axis_max"));
+			}
+
 			if (type == Plot::Type::XY)
 			{
 				std::string xAxisVariable = ini->get(sectionName).get("x_axis_variable");
@@ -439,6 +453,19 @@ mINI::INIStructure ConfigHandler::prepareSaveConfigFile(const std::string& elfPa
 	{
 		(configIni)[plotFieldFromID(plotId)]["name"] = plt->getName();
 		(configIni)[plotFieldFromID(plotId)]["type"] = std::to_string(static_cast<uint8_t>(plt->getType()));
+
+		// Save axis limits
+		(configIni)[plotFieldFromID(plotId)]["x_axis_auto_fit"] = plt->xAxisLimits.autoFit ? "true" : "false";
+		(configIni)[plotFieldFromID(plotId)]["y_axis_auto_fit"] = plt->yAxisLimits.autoFit ? "true" : "false";
+		
+		if (!plt->xAxisLimits.autoFit) {
+			(configIni)[plotFieldFromID(plotId)]["x_axis_min"] = std::to_string(plt->xAxisLimits.min);
+			(configIni)[plotFieldFromID(plotId)]["x_axis_max"] = std::to_string(plt->xAxisLimits.max);
+		}
+		if (!plt->yAxisLimits.autoFit) {
+			(configIni)[plotFieldFromID(plotId)]["y_axis_min"] = std::to_string(plt->yAxisLimits.min);
+			(configIni)[plotFieldFromID(plotId)]["y_axis_max"] = std::to_string(plt->yAxisLimits.max);
+		}
 
 		if (plt->getType() == Plot::Type::XY)
 			(configIni)[plotFieldFromID(plotId)]["x_axis_variable"] = plt->getXAxisVariable() != nullptr ? plt->getXAxisVariable()->getName() : "";
