@@ -129,17 +129,61 @@ void ConfigHandler::loadPlots()
 			auto plot = plotHandler->getPlot(plotName);
 			plot->setType(type);
 
-			// Load axis limits
-			plot->xAxisLimits.autoFit = ini->get(sectionName).get("x_axis_auto_fit") == "true";
-			plot->yAxisLimits.autoFit = ini->get(sectionName).get("y_axis_auto_fit") == "true";
-			
-			if (!plot->xAxisLimits.autoFit) {
-				plot->xAxisLimits.min = std::stod(ini->get(sectionName).get("x_axis_min"));
-				plot->xAxisLimits.max = std::stod(ini->get(sectionName).get("x_axis_max"));
+			// Load axis limits - default to auto-fit unless explicitly set to false
+			std::string xAxisAutoFit = ini->get(sectionName).get("x_axis_auto_fit");
+			std::string yAxisAutoFit = ini->get(sectionName).get("y_axis_auto_fit");
+
+			// Default to auto-fit unless explicitly set to "false"
+			plot->xAxisLimits.autoFit = (xAxisAutoFit != "false");
+			plot->yAxisLimits.autoFit = (yAxisAutoFit != "false");
+
+			// Only try to parse axis limits if autoFit is explicitly set to false
+			if (xAxisAutoFit == "false")
+			{
+				std::string xAxisMin = ini->get(sectionName).get("x_axis_min");
+				std::string xAxisMax = ini->get(sectionName).get("x_axis_max");
+				if (!xAxisMin.empty() && !xAxisMax.empty())
+				{
+					try
+					{
+						plot->xAxisLimits.min = std::stod(xAxisMin);
+						plot->xAxisLimits.max = std::stod(xAxisMax);
+					}
+					catch (const std::exception& ex)
+					{
+						logger->warn("Failed to parse x-axis limits for plot {}: {}", plotName, ex.what());
+						plot->xAxisLimits.autoFit = true;  // Fallback to auto-fit
+					}
+				}
+				else
+				{
+					logger->warn("X-axis auto-fit disabled but min/max values missing for plot {}", plotName);
+					plot->xAxisLimits.autoFit = true;  // Fallback to auto-fit if values are missing
+				}
 			}
-			if (!plot->yAxisLimits.autoFit) {
-				plot->yAxisLimits.min = std::stod(ini->get(sectionName).get("y_axis_min"));
-				plot->yAxisLimits.max = std::stod(ini->get(sectionName).get("y_axis_max"));
+
+			if (yAxisAutoFit == "false")
+			{
+				std::string yAxisMin = ini->get(sectionName).get("y_axis_min");
+				std::string yAxisMax = ini->get(sectionName).get("y_axis_max");
+				if (!yAxisMin.empty() && !yAxisMax.empty())
+				{
+					try
+					{
+						plot->yAxisLimits.min = std::stod(yAxisMin);
+						plot->yAxisLimits.max = std::stod(yAxisMax);
+					}
+					catch (const std::exception& ex)
+					{
+						logger->warn("Failed to parse y-axis limits for plot {}: {}", plotName, ex.what());
+						plot->yAxisLimits.autoFit = true;  // Fallback to auto-fit
+					}
+				}
+				else
+				{
+					logger->warn("Y-axis auto-fit disabled but min/max values missing for plot {}", plotName);
+					plot->yAxisLimits.autoFit = true;  // Fallback to auto-fit if values are missing
+				}
 			}
 
 			if (type == Plot::Type::XY)
@@ -457,12 +501,14 @@ mINI::INIStructure ConfigHandler::prepareSaveConfigFile(const std::string& elfPa
 		// Save axis limits
 		(configIni)[plotFieldFromID(plotId)]["x_axis_auto_fit"] = plt->xAxisLimits.autoFit ? "true" : "false";
 		(configIni)[plotFieldFromID(plotId)]["y_axis_auto_fit"] = plt->yAxisLimits.autoFit ? "true" : "false";
-		
-		if (!plt->xAxisLimits.autoFit) {
+
+		if (!plt->xAxisLimits.autoFit)
+		{
 			(configIni)[plotFieldFromID(plotId)]["x_axis_min"] = std::to_string(plt->xAxisLimits.min);
 			(configIni)[plotFieldFromID(plotId)]["x_axis_max"] = std::to_string(plt->xAxisLimits.max);
 		}
-		if (!plt->yAxisLimits.autoFit) {
+		if (!plt->yAxisLimits.autoFit)
+		{
 			(configIni)[plotFieldFromID(plotId)]["y_axis_min"] = std::to_string(plt->yAxisLimits.min);
 			(configIni)[plotFieldFromID(plotId)]["y_axis_max"] = std::to_string(plt->yAxisLimits.max);
 		}
