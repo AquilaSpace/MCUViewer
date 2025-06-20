@@ -1,12 +1,13 @@
 #pragma once
 
-#include <map>
+#include <memory>
 #include <set>
 #include <string>
-#include <utility>
+#include <vector>
 
 #include "../commons.hpp"
 #include "GuiHelper.hpp"
+#include "GuiVariableTreeView.hpp"
 #include "ImguiPlugins.hpp"
 #include "Variable.hpp"
 #include "VariableHandler.hpp"
@@ -15,7 +16,24 @@ class SelectVariableWindow
 {
    public:
 	SelectVariableWindow(VariableHandler* variableHandler, std::set<std::string>* selection, int id)
-		: variableHandler(variableHandler), selection(selection), id(id)
+		: variableHandler(variableHandler), selection(selection),
+		  treeView(
+			// Name extractor
+			[](const std::shared_ptr<Variable>& var) { return var->getName(); },
+			// Address extractor  
+			[](const std::shared_ptr<Variable>& var) { return "0x" + GuiHelper::intToHexString(var->getAddress()); },
+			// Selection checker
+			[this](const std::shared_ptr<Variable>& var) { return this->selection->contains(var->getName()); },
+			// Selection toggler
+			[this](const std::shared_ptr<Variable>& var, bool selected) {
+				if (selected) this->selection->insert(var->getName());
+				else this->selection->erase(var->getName());
+			},
+			// Item filter
+			[](const std::shared_ptr<Variable>& var, const std::string& filter) {
+				return toLower(var->getName()).find(toLower(filter)) != std::string::npos;
+			}
+		  )
 	{
 		popupName = "Select Variables##" + std::to_string(id);	// Unique name
 	}
@@ -50,7 +68,13 @@ class SelectVariableWindow
 			ImGui::PopItemWidth();
 			ImGui::Dummy(ImVec2(-1, 5));
 
-			drawTable(search);
+			// Convert VariableHandler to vector for tree view
+			std::vector<std::shared_ptr<Variable>> variables;
+			for (auto var : *variableHandler) {
+				variables.push_back(var);
+			}
+			
+			treeView.draw(variables, search, 400 * GuiHelper::contentScale);
 
 			std::string importBtnName{"Select ("};
 			importBtnName += std::to_string(selection->size()) + std::string(")");
@@ -71,64 +95,11 @@ class SelectVariableWindow
 	}
 
    private:
-	void drawTable(const std::string& substring)
-	{
-		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable;
-
-		if (ImGui::BeginTable("table_scrolly", 2, flags, ImVec2(0.0f, 400 * GuiHelper::contentScale)))
-		{
-			ImGui::TableSetupScrollFreeze(0, 1);
-			ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_None);
-			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_None);
-			ImGui::TableHeadersRow();
-
-			for (std::shared_ptr<Variable> var : *variableHandler)
-			{
-				std::string name = var->getName();
-				if (toLower(name).find(toLower(substring)) == std::string::npos)
-					continue;
-
-				ImGui::TableNextRow();
-				ImGui::TableSetColumnIndex(0);
-
-				const bool item_is_selected = selection->contains(name);
-
-				ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
-				if (ImGui::Selectable(name.c_str(), item_is_selected, selectable_flags, ImVec2(0, 12 * GuiHelper::contentScale)))
-				{
-					if (ImGui::GetIO().KeyCtrl)
-					{
-						if (item_is_selected)
-							selection->erase(name);
-						else
-							selection->insert(name);
-					}
-					else
-					{
-						selection->clear();
-						selection->insert(name);
-					}
-
-					if (ImGui::IsMouseDoubleClicked(0))
-					{
-						selection->clear();
-						selection->insert(name);
-						show = false;
-						ImGui::CloseCurrentPopup();
-					}
-				}
-				ImGui::TableSetColumnIndex(1);
-				ImGui::Text("%s", ("0x" + std::string(GuiHelper::intToHexString(var->getAddress()))).c_str());
-			}
-
-			ImGui::EndTable();
-		}
-	}
-
-   private:
 	VariableHandler* variableHandler;
 	std::set<std::string>* selection;
 	std::string popupName;
 	bool show = false;
-	int id;
+	
+	// Shared tree view component
+	VariableTreeView<std::shared_ptr<Variable>> treeView;
 };

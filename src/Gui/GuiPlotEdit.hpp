@@ -23,7 +23,23 @@ class PlotEditWindow
 			ImGui::OpenPopup("Plot Edit");
 
 		ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		ImGui::SetNextWindowSize(ImVec2(700 * GuiHelper::contentScale, 500 * GuiHelper::contentScale));
+		
+		// Calculate dynamic window size based on content
+		float baseHeight = 500 * GuiHelper::contentScale; // Base height for basic controls
+		float extraHeight = 0;
+		
+		if (editedPlot && editedPlot->getType() == Plot::Type::XY)
+		{
+			// Add height for each series in XY plots (for series-specific X-axis config)
+			auto& seriesMap = editedPlot->getSeriesMap();
+			extraHeight = seriesMap.size() * 35 * GuiHelper::contentScale; // ~35px per series
+			extraHeight = std::min(extraHeight, 300.0f * GuiHelper::contentScale); // Cap at 300px extra
+		}
+		
+		float totalHeight = baseHeight + extraHeight;
+		float windowWidth = 800 * GuiHelper::contentScale;
+		
+		ImGui::SetNextWindowSize(ImVec2(windowWidth, totalHeight));
 		if (ImGui::BeginPopupModal("Plot Edit", &showPlotEditWindow, 0))
 		{
 			drawPlotEditSettings();

@@ -187,9 +187,49 @@ void Gui::mainThread(std::string externalPath)
 			activeView = ActiveViewType::VarViewer;
 			drawAcqusitionSettingsWindow(activeView);
 			drawStartButton(viewerDataHandler);
-			variableTable->draw();
+			
+			// Calculate available space for sidebar content
+			float windowHeight = ImGui::GetWindowSize().y;
+			float currentY = ImGui::GetCursorPosY();
+			float availableHeight = windowHeight - currentY - 20; // 20px padding
+			
+			// Ensure plots tree gets minimum 30% of sidebar height
+			float minPlotsTreeHeight = availableHeight * 0.3f;
+			static float plotsTreeHeight = std::max(200.0f * GuiHelper::contentScale, minPlotsTreeHeight);
+			plotsTreeHeight = std::max(plotsTreeHeight, minPlotsTreeHeight);
+			
+			// Calculate variable table height
+			float varTableHeight = availableHeight - plotsTreeHeight - 8; // 8px for splitter
+			varTableHeight = std::max(varTableHeight, 150.0f * GuiHelper::contentScale); // Minimum var table height
+			
+			// Adjust plots tree height if variable table needs more space
+			if (varTableHeight < 150.0f * GuiHelper::contentScale) {
+				varTableHeight = 150.0f * GuiHelper::contentScale;
+				plotsTreeHeight = availableHeight - varTableHeight - 8;
+			}
+			
+			// Draw variable table in top section of sidebar
+			variableTable->drawWithHeight(varTableHeight);
+			
+			// Draw draggable splitter between variables and plots tree
+			ImGui::Button("##sidebar_splitter", ImVec2(-1, 8));
+			if (ImGui::IsItemActive()) {
+				float delta = ImGui::GetIO().MouseDelta.y;
+				plotsTreeHeight -= delta; // Decrease plots tree height when dragging up
+				// Enforce constraints
+				plotsTreeHeight = std::max(plotsTreeHeight, minPlotsTreeHeight);
+				plotsTreeHeight = std::min(plotsTreeHeight, availableHeight - 150.0f * GuiHelper::contentScale - 8);
+			}
+			ImGui::SetItemTooltip("Drag to resize");
+			
+			// Draw plots tree in bottom section of sidebar with calculated height
+			ImGui::BeginChild("PlotsTreeSection", ImVec2(-1, plotsTreeHeight), false, ImGuiWindowFlags_None);
 			plotsTree->draw();
+			ImGui::EndChild();
+			
 			plotEditWindow->draw();
+			
+			// Draw main plots window (separate from sidebar)
 			ImGui::SetNextWindowClass(&window_class);
 			if (ImGui::Begin("Plots"))
 				drawPlots();
