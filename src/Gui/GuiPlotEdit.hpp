@@ -121,13 +121,21 @@ class PlotEditWindow
 		GuiHelper::drawCenteredText("Axis Limits");
 		ImGui::Separator();
 
-		drawAxisLimits("X", editedPlot->xAxisLimits);
-		drawAxisLimits("Y", editedPlot->yAxisLimits);
+		// X-axis limits: only allow for XY plots (other plots use time)
+		bool enableXAxisLimits = (editedPlot->getType() == Plot::Type::XY);
+		drawAxisLimits("X", editedPlot->xAxisLimits, enableXAxisLimits);
+
+		// Y-axis limits: allow for all plots except TABLE (which doesn't draw plots)
+		bool enableYAxisLimits = (editedPlot->getType() != Plot::Type::TABLE);
+		drawAxisLimits("Y", editedPlot->yAxisLimits, enableYAxisLimits);
 	}
 
    private:
-	void drawAxisLimits(const char* axis, Plot::AxisLimits& limits)
+	void drawAxisLimits(const char* axis, Plot::AxisLimits& limits, bool enabled = true)
 	{
+		// Disable the entire axis section if not enabled for this plot type
+		ImGui::BeginDisabled(!enabled);
+
 		GuiHelper::drawTextAlignedToSize(std::string(axis) + "-axis:", alignment);
 		ImGui::SameLine();
 		ImGui::Text("auto-fit:");
@@ -138,12 +146,22 @@ class PlotEditWindow
 		ImGui::SameLine();
 		ImGui::BeginDisabled(limits.autoFit);
 		ImGui::SetNextItemWidth(80 * GuiHelper::contentScale);
-		ImGui::InputDouble(std::string("##" + std::string(axis) + "_min").c_str(), &limits.min, 0, 0, "%.3f");
+		if (ImGui::InputDouble(std::string("##" + std::string(axis) + "_min").c_str(), &limits.min, 0, 0, "%.3f")) {
+			if (limits.min >= limits.max) {
+				limits.max = limits.min + 1.0; // Auto-adjust max to be greater than min
+			}
+		}
 		ImGui::SameLine();
 		ImGui::Text("max:");
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(80 * GuiHelper::contentScale);
-		ImGui::InputDouble(std::string("##" + std::string(axis) + "_max").c_str(), &limits.max, 0, 0, "%.3f");
+		if (ImGui::InputDouble(std::string("##" + std::string(axis) + "_max").c_str(), &limits.max, 0, 0, "%.3f")) {
+			if (limits.max <= limits.min) {
+				limits.min = limits.max - 1.0; // Auto-adjust min to be less than max
+			}
+		}
+		ImGui::EndDisabled();
+
 		ImGui::EndDisabled();
 	}
 

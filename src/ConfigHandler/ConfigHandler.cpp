@@ -146,8 +146,15 @@ void ConfigHandler::loadPlots()
 				{
 					try
 					{
-						plot->xAxisLimits.min = std::stod(xAxisMin);
-						plot->xAxisLimits.max = std::stod(xAxisMax);
+						double min = std::stod(xAxisMin);
+						double max = std::stod(xAxisMax);
+						if (min >= max) {
+							logger->warn("Invalid x-axis limits for plot {} (min >= max): {} >= {}", plotName, min, max);
+							plot->xAxisLimits.autoFit = true;
+						} else {
+							plot->xAxisLimits.min = min;
+							plot->xAxisLimits.max = max;
+						}
 					}
 					catch (const std::exception& ex)
 					{
@@ -170,8 +177,15 @@ void ConfigHandler::loadPlots()
 				{
 					try
 					{
-						plot->yAxisLimits.min = std::stod(yAxisMin);
-						plot->yAxisLimits.max = std::stod(yAxisMax);
+						double min = std::stod(yAxisMin);
+						double max = std::stod(yAxisMax);
+						if (min >= max) {
+							logger->warn("Invalid y-axis limits for plot {} (min >= max): {} >= {}", plotName, min, max);
+							plot->yAxisLimits.autoFit = true;
+						} else {
+							plot->yAxisLimits.min = min;
+							plot->yAxisLimits.max = max;
+						}
 					}
 					catch (const std::exception& ex)
 					{

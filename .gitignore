@@ -2,6 +2,7 @@ build/*
 build_test/*
 .cache/*
 src/gitversion.hpp
+chips/*
 
 **/[Dd]ebug/
 **/[Rr]elease/

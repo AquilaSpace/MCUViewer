@@ -79,14 +79,36 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 
 		if (viewerDataHandler->getState() == DataHandlerBase::State::RUN)
 		{
-			ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
-			ImPlot::SetupAxis(ImAxis_X1, xLabel.c_str(), ImPlotAxisFlags_AutoFit);
+			// For XY plots, check each axis independently
+			if (plot->xAxisLimits.autoFit) {
+				ImPlot::SetupAxis(ImAxis_X1, xLabel.c_str(), ImPlotAxisFlags_AutoFit);
+			} else {
+				ImPlot::SetupAxis(ImAxis_X1, xLabel.c_str(), 0);
+				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
+			}
+			
+			if (plot->yAxisLimits.autoFit) {
+				ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
+			} else {
+				ImPlot::SetupAxis(ImAxis_Y1, NULL, 0);
+				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
+			}
 		}
 		else
 		{
 			ImPlot::SetupAxes(xLabel.c_str(), NULL, 0, 0);
-			ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
-			ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
+			
+			if (plot->xAxisLimits.autoFit) {
+				ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
+			} else {
+				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
+			}
+			
+			if (plot->yAxisLimits.autoFit) {
+				ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
+			} else {
+				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
+			}
 		}
 
 		plot->setIsHovered(ImPlot::IsPlotHovered());
@@ -130,29 +152,43 @@ void Gui::drawPlotCurve(std::shared_ptr<Plot> plot)
 		{
 			ViewerDataHandler::Settings settings = viewerDataHandler->getSettings();
 			
-			if (plot->xAxisLimits.autoFit) {
+			// Setup Y-axis first based on its auto-fit setting
+			if (plot->yAxisLimits.autoFit) {
 				ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
+			} else {
+				ImPlot::SetupAxis(ImAxis_Y1, NULL, 0);
+			}
+			
+			// Setup X-axis based on its auto-fit setting
+			if (plot->xAxisLimits.autoFit) {
 				ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
 				const double viewportWidth = (1.0 / viewerDataHandler->getAverageSamplingFrequency()) * settings.maxViewportPoints;
 				const double min = *time.getLastElement() < viewportWidth ? 0.0f : *time.getLastElement() - viewportWidth;
 				const double max = min == 0.0f ? *time.getLastElement() : min + viewportWidth;
 				ImPlot::SetupAxisLimits(ImAxis_X1, min, max, ImPlotCond_Always);
 			} else {
-				ImPlot::SetupAxis(ImAxis_Y1, NULL, 0);
 				ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
 				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
+			}
+			
+			// Apply Y-axis limits if not auto-fit
+			if (!plot->yAxisLimits.autoFit) {
 				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
 			}
 		}
 		else
 		{
+			ImPlot::SetupAxes("time[s]", NULL, 0, 0);
+			
 			if (plot->xAxisLimits.autoFit) {
-				ImPlot::SetupAxes("time[s]", NULL, 0, 0);
 				ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
+			} else {
+				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
+			}
+			
+			if (plot->yAxisLimits.autoFit) {
 				ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
 			} else {
-				ImPlot::SetupAxes("time[s]", NULL, 0, 0);
-				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
 				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
 			}
 		}
@@ -380,7 +416,6 @@ void Gui::handleDragRect(uint32_t id, Plot::DragRect& dragRect, ImPlotRect plotL
 			dragRect.setValueX1(markerPosX1);
 		}
 
-		static ImPlotRect rect(0.0025, 0.0045, 0, 0.5);
 		ImPlot::DragRect(id, &markerPosX0, &plotLimits.Y.Min, &markerPosX1, &plotLimits.Y.Max, ImVec4(0.15, 0.96, 0.9, 0.45), ImPlotDragToolFlags_NoFit);
 		dragRect.setValueX0(markerPosX0);
 		dragRect.setValueX1(markerPosX1);

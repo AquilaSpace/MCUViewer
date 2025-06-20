@@ -46,13 +46,13 @@ class ImportVariablesWindow
 			else
 			{
 				if (refreshThread.valid())
-                {
-                    if(!refreshThread.get())
-					    acqusitionErrorPopup.show("Error!", "Update error. Please check the *.elf file path!", 2.0f);
-                    
-                    varsForDisplay = parser->getParsedData();
-                    rebuildTree = true;
-                }
+			{
+				if(!refreshThread.get())
+					acqusitionErrorPopup.show("Error!", "Update error. Please check the *.elf file path!", 2.0f);
+				
+				varsForDisplay = parser->getParsedData();
+				rebuildTree = true;
+			}
 				snprintf(buttonText, 30, "Refresh");
 			}
 

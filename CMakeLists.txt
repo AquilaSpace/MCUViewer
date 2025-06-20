@@ -304,11 +304,6 @@ set(CPACK_COMPONENT_APPLICATIONS_INSTALL_TYPES Full)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/launch/install/Unix/postinst")
 include(CPack)
 
-if(UNIX AND NOT APPLE)
-    find_package(Threads REQUIRED)
-    target_link_libraries(MCUViewer PRIVATE Threads::Threads)
-endif()
-
 # Embed font file
 find_program(XXD_EXECUTABLE xxd)
 if(XXD_EXECUTABLE)
@@ -338,11 +333,5 @@ if(XXD_EXECUTABLE)
 else()
     message(STATUS "xxd not found, will not embed font. Will load from file.")
     # For non-embedded font, we need to make sure it's available next to the executable
-    install(FILES ${CMAKE_SOURCE_DIR}/resources/font.ttf DESTINATION bin)
+    install(FILES ${CMAKE_SOURCE_DIR}/resources/font.ttf DESTINATION ${INSTALL_PATH})
 endif()
-
-install(TARGETS MCUViewer
-    RUNTIME DESTINATION bin
-)
-
-target_include_directories(MCUViewer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
