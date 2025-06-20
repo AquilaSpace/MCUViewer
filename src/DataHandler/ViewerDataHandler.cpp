@@ -203,6 +203,14 @@ void ViewerDataHandler::createSampleList()
 				if (!checkIfElementExists(newElement))
 					sampleList.push_back(newElement);
 			}
+
+			// Add series-specific X-axis variables for XY plots
+			if (plot->getType() == Plot::Type::XY && ser->xAxisVariable != nullptr)
+			{
+				newElement = {ser->xAxisVariable->getAddress(), ser->xAxisVariable->getSize()};
+				if (!checkIfElementExists(newElement))
+					sampleList.push_back(newElement);
+			}
 		}
 	}
 

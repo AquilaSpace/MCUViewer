@@ -45,6 +45,7 @@ bool Plot::addSeries(Variable* var)
 	std::string name = var->getName();
 	seriesMap[name] = std::make_shared<Series>();
 	seriesMap[name]->buffer = std::make_unique<ScrollingBuffer<double>>();
+	seriesMap[name]->xAxisBuffer = std::make_unique<ScrollingBuffer<double>>();
 	seriesMap[name]->var = var;
 	return true;
 }
@@ -144,8 +145,13 @@ void Plot::erase()
 	time.erase();
 	xAxisSeries.buffer->erase();
 
-	for (auto& [name, ser] : seriesMap)
+	for (auto& [name, ser] : seriesMap) {
 		ser->buffer->erase();
+		// Also clear series-specific X-axis buffers
+		if (ser->xAxisBuffer) {
+			ser->xAxisBuffer->erase();
+		}
+	}
 }
 
 void Plot::setVisibility(bool state)
@@ -271,4 +277,41 @@ Variable* Plot::getXAxisVariable()
 void Plot::setXAxisVariable(Variable* var)
 {
 	xAxisSeries.var = var;
+}
+
+Variable* Plot::getSeriesXAxisVariable(const std::string& seriesName)
+{
+	auto it = seriesMap.find(seriesName);
+	return (it != seriesMap.end()) ? it->second->xAxisVariable : nullptr;
+}
+
+void Plot::setSeriesXAxisVariable(const std::string& seriesName, Variable* var)
+{
+	auto it = seriesMap.find(seriesName);
+	if (it != seriesMap.end()) {
+		it->second->xAxisVariable = var;
+
+		if (it->second->xAxisBuffer) {
+			// Clear X-axis buffer
+			it->second->xAxisBuffer->erase();
+
+			// If the series already has Y-axis data, synchronize X-axis buffer
+			// by filling it with the current X-axis variable value
+			if (var && it->second->buffer) {
+				uint32_t ySize = it->second->buffer->getSize();
+				double currentXValue = var->getValue();
+
+				// Add the same X value for each existing Y point to maintain synchronization
+				for (uint32_t i = 0; i < ySize; i++) {
+					it->second->xAxisBuffer->addPoint(currentXValue);
+				}
+			}
+		}
+	}
+}
+
+bool Plot::hasSeriesXAxisVariable(const std::string& seriesName) const
+{
+	auto it = seriesMap.find(seriesName);
+	return (it != seriesMap.end()) && (it->second->xAxisVariable != nullptr);
 }

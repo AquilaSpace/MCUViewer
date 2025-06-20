@@ -1,12 +1,9 @@
 #ifndef _PLOT_HPP
 #define _PLOT_HPP
 
-#include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "ScrollingBuffer.hpp"
@@ -24,11 +21,19 @@ class Plot
 	struct Series
 	{
 		Variable* var = nullptr;
+		Variable* xAxisVariable = nullptr;  // Series-specific X-axis variable for XY plots
 		displayFormat format = displayFormat::DEC;
 		std::unique_ptr<ScrollingBuffer<double>> buffer;
+		std::unique_ptr<ScrollingBuffer<double>> xAxisBuffer;  // X-axis data buffer for this series
 		bool visible = true;
 
-		void addPointFromVar() { buffer->addPoint(var->getValue()); }
+		void addPointFromVar() 
+		{ 
+			buffer->addPoint(var->getValue()); 
+			if (xAxisVariable && xAxisBuffer) {
+				xAxisBuffer->addPoint(xAxisVariable->getValue());
+			}
+		}
 	};
 
 	enum class Type : uint8_t
@@ -149,6 +154,11 @@ class Plot
 
 	Variable* getXAxisVariable();
 	void setXAxisVariable(Variable* var);
+	
+	// Series-specific X-axis methods for XY plots
+	Variable* getSeriesXAxisVariable(const std::string& seriesName);
+	void setSeriesXAxisVariable(const std::string& seriesName, Variable* var);
+	bool hasSeriesXAxisVariable(const std::string& seriesName) const;
 
 	displayFormat getSeriesDisplayFormat(const std::string& name) const;
 	void setSeriesDisplayFormat(const std::string& name, displayFormat format);

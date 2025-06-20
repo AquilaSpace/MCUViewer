@@ -220,6 +220,15 @@ void ConfigHandler::loadPlots()
 				if (displayFormat == "")
 					displayFormat = "DEC";
 				plot->getSeries(varName)->format = displayFormatMap.at(displayFormat);
+				
+				// Load series-specific X-axis variable for XY plots
+				if (type == Plot::Type::XY) {
+					std::string seriesXAxisVar = ini->get(plotSeriesFieldFromID(plotNumber, seriesNumber)).get("x_axis_variable");
+					if (!seriesXAxisVar.empty() && variableHandler->contains(seriesXAxisVar)) {
+						plot->setSeriesXAxisVariable(varName, variableHandler->getVariable(seriesXAxisVar).get());
+					}
+				}
+				
 				logger->info("Adding series: {}", varName);
 				seriesNumber++;
 				varName = ini->get(plotSeriesFieldFromID(plotNumber, seriesNumber)).get("name");
@@ -548,6 +557,12 @@ mINI::INIStructure ConfigHandler::prepareSaveConfigFile(const std::string& elfPa
 			}
 
 			(configIni)[plotSeriesFieldFromID(plotId, serId)]["format"] = displayFormat;
+			
+			// Save series-specific X-axis variable for XY plots
+			if (plt->getType() == Plot::Type::XY && ser->xAxisVariable) {
+				(configIni)[plotSeriesFieldFromID(plotId, serId)]["x_axis_variable"] = ser->xAxisVariable->getName();
+			}
+			
 			serId++;
 		}
 

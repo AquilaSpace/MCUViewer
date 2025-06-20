@@ -122,6 +122,10 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 			if (!serPtr->visible)
 				continue;
 			serPtr->buffer->copyData();
+			// Copy X-axis data if series has its own X-axis variable
+			if (serPtr->xAxisVariable && serPtr->xAxisBuffer) {
+				serPtr->xAxisBuffer->copyData();
+			}
 		}
 		uint32_t offset = time.getOffset();
 		uint32_t size = time.getSize();
@@ -134,7 +138,24 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 
 			ImPlot::SetNextLineStyle(ImVec4(serPtr->var->getColor().r, serPtr->var->getColor().g, serPtr->var->getColor().b, 1.0f));
 			ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 2.0f);
-			ImPlot::PlotLine(key.c_str(), time.getFirstElementCopy(), serPtr->buffer->getFirstElementCopy(), size, 0, offset, sizeof(double));
+			
+			// Use series-specific X-axis data if available, otherwise fall back to plot default
+			if (serPtr->xAxisVariable && serPtr->xAxisBuffer && serPtr->xAxisBuffer->getSize() > 0) {
+				// Use the plot-level size and offset for consistency across all series
+				// This ensures all series are synchronized to the same time base and prevents
+				// circular buffer wraparound artifacts between series
+				uint32_t plotSize = size;
+				uint32_t plotOffset = offset;
+				
+				// Verify that the series X-axis buffer has enough data to match plot timing
+				if (serPtr->xAxisBuffer->getSize() >= plotSize) {
+					ImPlot::PlotLine(key.c_str(), serPtr->xAxisBuffer->getFirstElementCopy(), serPtr->buffer->getFirstElementCopy(), plotSize, ImPlotLineFlags_None, plotOffset, sizeof(double));
+				}
+				// If series X-axis buffer doesn't have enough data, skip this frame
+			} else {
+				// Fall back to plot-level X-axis (time or plot X-axis variable)
+				ImPlot::PlotLine(key.c_str(), time.getFirstElementCopy(), serPtr->buffer->getFirstElementCopy(), size, ImPlotLineFlags_None, offset, sizeof(double));
+			}
 		}
 
 		ImPlot::EndPlot();

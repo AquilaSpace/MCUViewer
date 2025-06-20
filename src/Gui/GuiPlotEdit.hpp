@@ -98,7 +98,7 @@ class PlotEditWindow
 
 		if (editedPlot->getType() == Plot::Type::XY)
 		{
-			GuiHelper::drawTextAlignedToSize("X-axis variable:", alignment);
+			GuiHelper::drawTextAlignedToSize("Default X-axis:", alignment);
 			ImGui::SameLine();
 
 			std::string selectedVariable = "";
@@ -108,12 +108,19 @@ class PlotEditWindow
 			else
 				selectedVariable = *selection.begin();
 
-			ImGui::InputText("##", &selectedVariable, 0, NULL, NULL);
+			ImGui::InputText("##defaultX", &selectedVariable, 0, NULL, NULL);
 			if (variableHandler->contains(selectedVariable))
 				editedPlot->setXAxisVariable(variableHandler->getVariable(selectedVariable).get());
 			ImGui::SameLine();
-			if (ImGui::Button("select...", ImVec2(65 * GuiHelper::contentScale, 19 * GuiHelper::contentScale)))
+			if (ImGui::Button("select...##defaultX", ImVec2(65 * GuiHelper::contentScale, 19 * GuiHelper::contentScale)))
 				selectVariableWindow->setShowState(true);
+
+			// Series-specific X-axis configuration
+			ImGui::Separator();
+			GuiHelper::drawCenteredText("Per-Series X-Axis Variables");
+			ImGui::Separator();
+
+			drawSeriesXAxisConfiguration();
 		}
 
 		// Add axis limits controls
@@ -131,6 +138,73 @@ class PlotEditWindow
 	}
 
    private:
+	void drawSeriesXAxisConfiguration()
+	{
+		if (!editedPlot || editedPlot->getType() != Plot::Type::XY)
+			return;
+
+		auto& seriesMap = editedPlot->getSeriesMap();
+		if (seriesMap.empty())
+		{
+			ImGui::Text("No series added to this plot");
+			return;
+		}
+
+		ImGui::Text("Configure X-axis variable for each Y-series:");
+		ImGui::Text("(Leave empty to use default X-axis)");
+		ImGui::Spacing();
+
+		for (auto& [seriesName, series] : seriesMap)
+		{
+			ImGui::PushID(seriesName.c_str());
+
+			// Series name with color indicator
+			Variable::Color color = series->var->getColor();
+			ImVec4 col = {color.r, color.g, color.b, color.a};
+			ImGui::ColorButton("##seriesColor", col, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoTooltip, ImVec2(10 * GuiHelper::contentScale, 10 * GuiHelper::contentScale));
+			ImGui::SameLine();
+
+			// Series name and X-axis variable selector
+			std::string labelText = seriesName + " X-axis:";
+			GuiHelper::drawTextAlignedToSize(std::move(labelText), alignment);
+			ImGui::SameLine();
+
+			// Get current X-axis variable for this series
+			std::string currentXVar = "";
+			Variable* currentXAxisVar = editedPlot->getSeriesXAxisVariable(seriesName);
+			if (currentXAxisVar)
+				currentXVar = currentXAxisVar->getName();
+
+			// Input text field for X-axis variable (like the default X-axis selector)
+			ImGui::InputText("##seriesXAxis", &currentXVar, 0, NULL, NULL);
+			if (currentXVar.empty())
+			{
+				// Empty means use default X-axis
+				editedPlot->setSeriesXAxisVariable(seriesName, nullptr);
+			}
+			else if (variableHandler->contains(currentXVar))
+			{
+				// Valid variable name - set as series X-axis
+				editedPlot->setSeriesXAxisVariable(seriesName, variableHandler->getVariable(currentXVar).get());
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("select...", ImVec2(65 * GuiHelper::contentScale, 19 * GuiHelper::contentScale)))
+			{
+				// TODO: Create a series-specific variable selector or reuse the existing one
+				// For now, user can type the variable name directly
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Clear", ImVec2(50 * GuiHelper::contentScale, 19 * GuiHelper::contentScale)))
+			{
+				editedPlot->setSeriesXAxisVariable(seriesName, nullptr);
+			}
+
+			ImGui::PopID();
+		}
+	}
+
 	void drawAxisLimits(const char* axis, Plot::AxisLimits& limits, bool enabled = true)
 	{
 		// Disable the entire axis section if not enabled for this plot type
@@ -146,18 +220,22 @@ class PlotEditWindow
 		ImGui::SameLine();
 		ImGui::BeginDisabled(limits.autoFit);
 		ImGui::SetNextItemWidth(80 * GuiHelper::contentScale);
-		if (ImGui::InputDouble(std::string("##" + std::string(axis) + "_min").c_str(), &limits.min, 0, 0, "%.3f")) {
-			if (limits.min >= limits.max) {
-				limits.max = limits.min + 1.0; // Auto-adjust max to be greater than min
+		if (ImGui::InputDouble(std::string("##" + std::string(axis) + "_min").c_str(), &limits.min, 0, 0, "%.3f"))
+		{
+			if (limits.min >= limits.max)
+			{
+				limits.max = limits.min + 1.0;	// Auto-adjust max to be greater than min
 			}
 		}
 		ImGui::SameLine();
 		ImGui::Text("max:");
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(80 * GuiHelper::contentScale);
-		if (ImGui::InputDouble(std::string("##" + std::string(axis) + "_max").c_str(), &limits.max, 0, 0, "%.3f")) {
-			if (limits.max <= limits.min) {
-				limits.min = limits.max - 1.0; // Auto-adjust min to be less than max
+		if (ImGui::InputDouble(std::string("##" + std::string(axis) + "_max").c_str(), &limits.max, 0, 0, "%.3f"))
+		{
+			if (limits.max <= limits.min)
+			{
+				limits.min = limits.max - 1.0;	// Auto-adjust min to be less than max
 			}
 		}
 		ImGui::EndDisabled();
