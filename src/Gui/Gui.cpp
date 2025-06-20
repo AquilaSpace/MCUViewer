@@ -3,6 +3,8 @@
 #include <imgui.h>
 #include <unistd.h>
 
+#include <filesystem>
+#include <fstream>
 #include <future>
 #include <set>
 #include <sstream>
@@ -125,6 +127,13 @@ void Gui::mainThread(std::string externalPath)
 
 	if (!externalPath.empty())
 		openProject(externalPath);
+	else
+	{
+		// Check if we should prompt to reopen last project
+		std::string lastPath = getLastProjectPath();
+		if (!lastPath.empty())
+			showReopenProjectPrompt = true;
+	}
 
 	while (!done)
 	{
@@ -166,6 +175,7 @@ void Gui::mainThread(std::string externalPath)
 		drawMenu();
 		drawAboutWindow();
 		drawPreferencesWindow();
+		promptReopenLastProject();
 
 		if (ImGui::Begin("Trace Viewer"))
 		{
@@ -519,9 +529,78 @@ bool Gui::openProject(std::string externalPath)
 
 		traceDataHandler->setDebugProbe(traceProbeDevice);
 
+		// Cache the successfully opened project path
+		saveLastProjectPath(path);
+		
 		return true;
 	}
 	return false;
+}
+
+std::string Gui::getLastProjectPath()
+{
+	std::string cacheDir = ".cache";
+	std::string cacheFile = cacheDir + "/last_project.cache";
+	std::ifstream file(cacheFile);
+	if (file.is_open())
+	{
+		std::string path;
+		std::getline(file, path);
+		file.close();
+		// Check if the cached file still exists
+		if (!path.empty() && std::filesystem::exists(path))
+			return path;
+	}
+	return "";
+}
+
+void Gui::saveLastProjectPath(const std::string& path)
+{
+	if (!path.empty())
+	{
+		std::string cacheDir = ".cache";
+		std::string cacheFile = cacheDir + "/last_project.cache";
+
+		// Create cache directory if it doesn't exist
+		std::filesystem::create_directories(cacheDir);
+
+		std::ofstream file(cacheFile);
+		if (file.is_open())
+		{
+			file << path << std::endl;
+			file.close();
+		}
+	}
+}
+
+void Gui::promptReopenLastProject()
+{
+	if (showReopenProjectPrompt)
+		ImGui::OpenPopup("Reopen Last Project?");
+
+	if (ImGui::BeginPopupModal("Reopen Last Project?", &showReopenProjectPrompt, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		std::string lastPath = getLastProjectPath();
+		std::string filename = std::filesystem::path(lastPath).filename().string();
+		
+		ImGui::Text("Reopen last project: %s?", filename.c_str());
+		
+		if (ImGui::Button("Yes"))
+		{
+			openProject(lastPath);
+			showReopenProjectPrompt = false;
+			ImGui::CloseCurrentPopup();
+		}
+		
+		ImGui::SameLine();
+		if (ImGui::Button("No"))
+		{
+			showReopenProjectPrompt = false;
+			ImGui::CloseCurrentPopup();
+		}
+		
+		ImGui::EndPopup();
+	}
 }
 
 bool Gui::openElfFile()

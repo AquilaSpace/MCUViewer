@@ -52,6 +52,7 @@ class Gui
 	bool showAboutWindow = false;
 	bool showPreferencesWindow = false;
 	bool showSelectVariablesWindow = false;
+	bool showReopenProjectPrompt = false;
 
 	IFileHandler* fileHandler;
 	PlotHandler* tracePlotHandler;
@@ -128,6 +129,12 @@ class Gui
 	void checkShortcuts();
 	bool checkElfFileChanged();
 	bool openProject(std::string externalPath = "");
+	
+	// Recent project cache functions
+	std::string getLastProjectPath();
+	void saveLastProjectPath(const std::string& path);
+	void promptReopenLastProject();
+	
 	void drawSettingsSwo();
 	void drawIndicatorsSwo();
 	void drawPlotsSwo();
