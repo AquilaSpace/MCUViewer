@@ -1,6 +1,10 @@
 #include "Variable.hpp"
 
 #include <limits>
+#include <cmath>
+#include <sstream>
+#include <regex>
+#include <algorithm>
 
 const char* Variable::types[8] = {"unknown",
 								  "uint8_t",
@@ -11,9 +15,10 @@ const char* Variable::types[8] = {"unknown",
 								  "int32_t",
 								  "float"};
 
-const char* Variable::highLevelTypes[3] = {"-",
+const char* Variable::highLevelTypes[4] = {"-",
 										   "signed fixed point",
-										   "unsigned fixed point"};
+										   "unsigned fixed point",
+										   "virtual"};
 
 Variable::Variable(std::string name) : name(name)
 {
@@ -345,4 +350,288 @@ void Variable::setIsCurrentlySampled(bool isCurrentlySampled)
 bool Variable::getIsCurrentlySampled() const
 {
 	return isCurrentlySampled;
+}
+
+void Variable::setVirtual(Virtual virtual_)
+{
+	this->virtual_ = virtual_;
+}
+
+Variable::Virtual Variable::getVirtual() const
+{
+	return virtual_;
+}
+
+bool Variable::isVirtual() const
+{
+	return highLevelType == HighLevelType::VIRTUAL;
+}
+
+std::vector<std::string> Variable::extractDependencies(const std::string& expression)
+{
+	std::vector<std::string> dependencies;
+	std::regex var_regex(R"([a-zA-Z_][a-zA-Z0-9_]*(?:::[a-zA-Z_][a-zA-Z0-9_]*)*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)");
+	std::sregex_iterator iter(expression.begin(), expression.end(), var_regex);
+	std::sregex_iterator end;
+	
+	for (; iter != end; ++iter)
+	{
+		std::string match = iter->str();
+		if (match != "sin" && match != "cos" && match != "tan" && match != "sqrt" && 
+			match != "abs" && match != "log" && match != "exp" && match != "min" && match != "max")
+		{
+			if (std::find(dependencies.begin(), dependencies.end(), match) == dependencies.end())
+			{
+				dependencies.push_back(match);
+			}
+		}
+	}
+	
+	return dependencies;
+}
+
+bool Variable::evaluateExpression(const std::function<Variable*(const std::string&)>& getVariable)
+{
+	if (!isVirtual())
+		return false;
+		
+	return evaluateExpression(getVariable, 0.0); // Default time to 0 for backwards compatibility
+}
+
+bool Variable::evaluateExpression(const std::function<Variable*(const std::string&)>& getVariable, double currentTime)
+{
+	if (!isVirtual())
+		return false;
+		
+	try
+	{
+		std::string expr = virtual_.expression;
+		
+		// First replace "time" with the current time value
+		size_t pos = 0;
+		while ((pos = expr.find("time", pos)) != std::string::npos)
+		{
+			if ((pos == 0 || !std::isalnum(expr[pos-1])) && 
+				(pos + 4 == expr.length() || !std::isalnum(expr[pos + 4])))
+			{
+				expr.replace(pos, 4, std::to_string(currentTime));
+				pos += std::to_string(currentTime).length();
+			}
+			else
+			{
+				pos += 4;
+			}
+		}
+		
+		// Then replace variable dependencies
+		for (const auto& dep : virtual_.dependencies)
+		{
+			if (dep == "time") continue; // Already handled above
+			
+			Variable* depVar = getVariable(dep);
+			if (!depVar)
+			{
+				virtual_.isValid = false;
+				virtual_.errorMessage = "Dependency '" + dep + "' not found";
+				return false;
+			}
+			
+			// Regular variables must be found in ELF, virtual variables are always valid
+			if (!depVar->isVirtual() && !depVar->getIsFound())
+			{
+				virtual_.isValid = false;
+				virtual_.errorMessage = "Dependency '" + dep + "' not found in ELF";
+				return false;
+			}
+			
+			std::string replacement = std::to_string(depVar->getValue());
+			pos = 0;
+			while ((pos = expr.find(dep, pos)) != std::string::npos)
+			{
+				if ((pos == 0 || !std::isalnum(expr[pos-1])) && 
+					(pos + dep.length() == expr.length() || !std::isalnum(expr[pos + dep.length()])))
+				{
+					expr.replace(pos, dep.length(), replacement);
+					pos += replacement.length();
+				}
+				else
+				{
+					pos += dep.length();
+				}
+			}
+		}
+		
+		double result = evaluateMathExpression(expr);
+		setValue(result);
+		virtual_.isValid = true;
+		virtual_.errorMessage.clear();
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		virtual_.isValid = false;
+		virtual_.errorMessage = e.what();
+		return false;
+	}
+}
+
+double Variable::evaluateMathExpression(const std::string& expr)
+{
+	std::string cleanExpr = expr;
+	cleanExpr.erase(std::remove_if(cleanExpr.begin(), cleanExpr.end(), ::isspace), cleanExpr.end());
+	
+	return parseExpression(cleanExpr, 0).first;
+}
+
+std::pair<double, size_t> Variable::parseExpression(const std::string& expr, size_t pos)
+{
+	auto [left, newPos] = parseTerm(expr, pos);
+	
+	while (newPos < expr.length() && (expr[newPos] == '+' || expr[newPos] == '-'))
+	{
+		char op = expr[newPos];
+		auto [right, nextPos] = parseTerm(expr, newPos + 1);
+		left = (op == '+') ? left + right : left - right;
+		newPos = nextPos;
+	}
+	
+	return {left, newPos};
+}
+
+std::pair<double, size_t> Variable::parseTerm(const std::string& expr, size_t pos)
+{
+	auto [left, newPos] = parseFactor(expr, pos);
+	
+	while (newPos < expr.length() && (expr[newPos] == '*' || expr[newPos] == '/' || expr[newPos] == '%'))
+	{
+		char op = expr[newPos];
+		auto [right, nextPos] = parseFactor(expr, newPos + 1);
+		if (op == '*')
+			left *= right;
+		else if (op == '/')
+		{
+			if (right == 0.0)
+				throw std::runtime_error("Division by zero");
+			left /= right;
+		}
+		else if (op == '%')
+		{
+			if (right == 0.0)
+				throw std::runtime_error("Modulo by zero");
+			left = std::fmod(left, right);
+		}
+		newPos = nextPos;
+	}
+	
+	return {left, newPos};
+}
+
+std::pair<double, size_t> Variable::parseFactor(const std::string& expr, size_t pos)
+{
+	if (pos >= expr.length())
+		throw std::runtime_error("Unexpected end of expression");
+		
+	if (expr[pos] == '(')
+	{
+		auto [result, newPos] = parseExpression(expr, pos + 1);
+		if (newPos >= expr.length() || expr[newPos] != ')')
+			throw std::runtime_error("Missing closing parenthesis");
+		return {result, newPos + 1};
+	}
+	
+	if (expr[pos] == '-')
+	{
+		auto [result, newPos] = parsePower(expr, pos + 1);
+		return {-result, newPos};
+	}
+	
+	if (expr[pos] == '+')
+	{
+		return parsePower(expr, pos + 1);
+	}
+	
+	size_t start = pos;
+	if (std::isalpha(expr[pos]))
+	{
+		while (pos < expr.length() && (std::isalnum(expr[pos]) || expr[pos] == '_'))
+			pos++;
+			
+		std::string func = expr.substr(start, pos - start);
+		
+		if (pos < expr.length() && expr[pos] == '(')
+		{
+			auto [arg, newPos] = parseExpression(expr, pos + 1);
+			if (newPos >= expr.length() || expr[newPos] != ')')
+				throw std::runtime_error("Missing closing parenthesis for function");
+				
+			double result;
+			if (func == "sin") result = std::sin(arg);
+			else if (func == "cos") result = std::cos(arg);
+			else if (func == "tan") result = std::tan(arg);
+			else if (func == "sqrt") result = std::sqrt(arg);
+			else if (func == "abs") result = std::abs(arg);
+			else if (func == "log") result = std::log(arg);
+			else if (func == "exp") result = std::exp(arg);
+			else throw std::runtime_error("Unknown function: " + func);
+			
+			return {result, newPos + 1};
+		}
+		else if (func == "min" || func == "max")
+		{
+			if (pos >= expr.length() || expr[pos] != '(')
+				throw std::runtime_error("Expected '(' after " + func);
+				
+			auto [arg1, pos1] = parseExpression(expr, pos + 1);
+			if (pos1 >= expr.length() || expr[pos1] != ',')
+				throw std::runtime_error("Expected ',' in " + func + " function");
+				
+			auto [arg2, pos2] = parseExpression(expr, pos1 + 1);
+			if (pos2 >= expr.length() || expr[pos2] != ')')
+				throw std::runtime_error("Missing closing parenthesis for " + func);
+				
+			double result = (func == "min") ? std::min(arg1, arg2) : std::max(arg1, arg2);
+			return {result, pos2 + 1};
+		}
+	}
+	
+	return parsePower(expr, start);
+}
+
+std::pair<double, size_t> Variable::parsePower(const std::string& expr, size_t pos)
+{
+	auto [left, newPos] = parseNumber(expr, pos);
+	
+	if (newPos < expr.length() && expr[newPos] == '^')
+	{
+		auto [right, nextPos] = parseFactor(expr, newPos + 1);
+		left = std::pow(left, right);
+		newPos = nextPos;
+	}
+	
+	return {left, newPos};
+}
+
+std::pair<double, size_t> Variable::parseNumber(const std::string& expr, size_t pos)
+{
+	if (pos >= expr.length())
+		throw std::runtime_error("Expected number");
+		
+	size_t start = pos;
+	bool hasDecimal = false;
+	
+	if (expr[pos] == '-' || expr[pos] == '+')
+		pos++;
+		
+	while (pos < expr.length() && (std::isdigit(expr[pos]) || (expr[pos] == '.' && !hasDecimal)))
+	{
+		if (expr[pos] == '.')
+			hasDecimal = true;
+		pos++;
+	}
+	
+	if (pos == start || (pos == start + 1 && (expr[start] == '-' || expr[start] == '+')))
+		throw std::runtime_error("Invalid number format");
+		
+	double value = std::stod(expr.substr(start, pos - start));
+	return {value, pos};
 }

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 class Variable
 {
@@ -25,6 +26,7 @@ class Variable
 		NONE = 0,
 		SIGNEDFRAC = 1,
 		UNSIGNEDFRAC = 2,
+		VIRTUAL = 3,
 	};
 
 	struct Color
@@ -40,6 +42,14 @@ class Variable
 		uint32_t fractionalBits = 15;
 		double base = 1.0;
 		Variable* baseVariable = nullptr;
+	};
+
+	struct Virtual
+	{
+		std::string expression;
+		std::vector<std::string> dependencies;
+		bool isValid = true;
+		std::string errorMessage;
 	};
 
 	explicit Variable(std::string name);
@@ -91,15 +101,30 @@ class Variable
 	Variable::Fractional getFractional() const;
 	bool isFractional() const;
 
+	void setVirtual(Virtual virtual_);
+	Virtual getVirtual() const;
+	bool isVirtual() const;
+	bool evaluateExpression(const std::function<Variable*(const std::string&)>& getVariable);
+	bool evaluateExpression(const std::function<Variable*(const std::string&)>& getVariable, double currentTime);
+	static std::vector<std::string> extractDependencies(const std::string& expression);
+
 	uint32_t getRawFromDouble(double value);
 	double transformToDouble();
 
 	void setIsCurrentlySampled(bool isCurrentlySampled);
 	bool getIsCurrentlySampled() const;
 
+   private:
+	static double evaluateMathExpression(const std::string& expr);
+	static std::pair<double, size_t> parseExpression(const std::string& expr, size_t pos);
+	static std::pair<double, size_t> parseTerm(const std::string& expr, size_t pos);
+	static std::pair<double, size_t> parseFactor(const std::string& expr, size_t pos);
+	static std::pair<double, size_t> parsePower(const std::string& expr, size_t pos);
+	static std::pair<double, size_t> parseNumber(const std::string& expr, size_t pos);
+
    public:
 	static const char* types[8];
-	static const char* highLevelTypes[3];
+	static const char* highLevelTypes[4];
 
    private:
 	std::string name = "";
@@ -112,6 +137,7 @@ class Variable
 
 	uint32_t address = 0x20000000;
 	Fractional fractional{};
+	Virtual virtual_{};
 
 	uint32_t shift = 0;
 	uint32_t mask = 0xffffffff;

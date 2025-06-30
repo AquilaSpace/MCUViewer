@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <random>
+#include <sstream>
 #include <variant>
 
 #include "IDebugProbe.hpp"
@@ -37,6 +38,8 @@ void ConfigHandler::loadVariables()
 
 	/* needed for fractional varaibles postprocessing */
 	std::unordered_map<std::string, std::string> fractionalBaseVariableNames;
+	/* needed for virtual variables postprocessing */
+	std::unordered_map<std::string, Variable::Virtual> virtualVariableData;
 
 	auto varFieldFromID = [](uint32_t id)
 	{ return std::string("var" + std::to_string(id)); };
@@ -69,6 +72,27 @@ void ConfigHandler::loadVariables()
 										 .base = atof(ini->get(varFieldFromID(varId)).get("base").c_str()),
 										 .baseVariable = nullptr};
 			newVar->setFractional(frac);
+		}
+		else if (newVar->isVirtual())
+		{
+			Variable::Virtual virtual_;
+			virtual_.expression = ini->get(varFieldFromID(varId)).get("expression");
+			virtual_.isValid = ini->get(varFieldFromID(varId)).get("is_valid") == "true";
+			virtual_.errorMessage = ini->get(varFieldFromID(varId)).get("error_message");
+			
+			std::string dependenciesStr = ini->get(varFieldFromID(varId)).get("dependencies");
+			if (!dependenciesStr.empty())
+			{
+				std::istringstream iss(dependenciesStr);
+				std::string dep;
+				while (std::getline(iss, dep, ','))
+				{
+					virtual_.dependencies.push_back(dep);
+				}
+			}
+			
+			virtualVariableData[name] = virtual_;
+			newVar->setVirtual(virtual_);
 		}
 		uint32_t mask = atoi(ini->get(varFieldFromID(varId)).get("mask").c_str());
 		if (mask == 0)
@@ -107,6 +131,9 @@ void ConfigHandler::loadVariables()
 		frac.baseVariable = baseVariable;
 		variable->setFractional(frac);
 	}
+
+	/* ensure all virtual variables are properly initialized with correct dependency order */
+	variableHandler->updateVirtualVariables();
 }
 
 void ConfigHandler::loadPlots()
@@ -510,6 +537,21 @@ mINI::INIStructure ConfigHandler::prepareSaveConfigFile(const std::string& elfPa
 			(configIni)[varFieldFromID(varId)]["frac"] = std::to_string(fractional.fractionalBits);
 			(configIni)[varFieldFromID(varId)]["base"] = std::to_string(fractional.base);
 			(configIni)[varFieldFromID(varId)]["base_variable"] = fractional.baseVariable != nullptr ? fractional.baseVariable->getName() : "";
+		}
+		else if (var->isVirtual())
+		{
+			auto virtual_ = var->getVirtual();
+			(configIni)[varFieldFromID(varId)]["expression"] = virtual_.expression;
+			(configIni)[varFieldFromID(varId)]["is_valid"] = virtual_.isValid ? "true" : "false";
+			(configIni)[varFieldFromID(varId)]["error_message"] = virtual_.errorMessage;
+			
+			std::string dependenciesStr;
+			for (size_t i = 0; i < virtual_.dependencies.size(); ++i)
+			{
+				if (i > 0) dependenciesStr += ",";
+				dependenciesStr += virtual_.dependencies[i];
+			}
+			(configIni)[varFieldFromID(varId)]["dependencies"] = dependenciesStr;
 		}
 
 		varId++;

@@ -178,13 +178,22 @@ private:
 				}
 				ImGui::TableSetColumnIndex(1);
 
-				if (var->getIsFound())
+				if (var->isVirtual())
+				{
+					drawVirtualVariableStatus(var);
+				}
+				else if (var->getIsFound())
 					ImGui::Text("%s", ("0x" + std::string(GuiHelper::intToHexString(var->getAddress()))).c_str());
 				else
 					ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "NOT FOUND!");
 
 				ImGui::TableSetColumnIndex(2);
-				ImGui::Text("%s", var->getTypeStr().c_str());
+				if (var->isVirtual())
+				{
+					drawVirtualVariableStatus(var);
+				}
+				else
+					ImGui::Text("%s", var->getTypeStr().c_str());
 			}
 
 			if (varNameToDelete.has_value())
@@ -427,18 +436,35 @@ private:
 		}
 
 		ImGui::TableSetColumnIndex(1);
-		if (var->getIsFound())
+		if (var->isVirtual())
+		{
+			drawVirtualVariableStatus(var);
+		}
+		else if (var->getIsFound())
 			ImGui::Text("%s", ("0x" + std::string(GuiHelper::intToHexString(var->getAddress()))).c_str());
 		else
 			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "NOT FOUND!");
 
 		ImGui::TableSetColumnIndex(2);
-		ImGui::Text("%s", var->getTypeStr().c_str());
+		if (var->isVirtual())
+		{
+			drawVirtualVariableStatus(var);
+		}
+		else
+			ImGui::Text("%s", var->getTypeStr().c_str());
 
 		ImGui::Unindent(depth * ImGui::GetStyle().IndentSpacing);
 	}
 
    private:
+	void drawVirtualVariableStatus(std::shared_ptr<Variable> var)
+	{
+		if (var->getVirtual().isValid)
+			ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Virtual");
+		else
+			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "INVALID");
+	}
+
 	void drawAddVariableButton()
 	{
 		if (ImGui::Button("Add variable", ImVec2(-1, 25 * GuiHelper::contentScale)))

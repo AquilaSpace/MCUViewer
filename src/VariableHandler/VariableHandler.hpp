@@ -3,6 +3,8 @@
 #include <map>
 #include <memory>
 #include <random>
+#include <set>
+#include <vector>
 
 #include "Variable.hpp"
 
@@ -28,6 +30,14 @@ class VariableHandler
 
 	void renameVariable(const std::string& currentName, const std::string& newName);
 
+	bool addVirtualVariable(const std::string& name, const std::string& expression);
+	bool updateVirtualVariable(const std::string& name, const std::string& expression);
+	void updateVirtualVariables();
+	void updateVirtualVariables(double currentTime);
+	bool hasCircularDependency(const std::string& varName, const std::vector<std::string>& dependencies);
+	std::vector<std::string> getCircularDependencyPath(const std::string& varName, const std::vector<std::string>& dependencies);
+	std::vector<std::string> getDependents(const std::string& varName);
+
 	class iterator
 	{
 	   public:
@@ -48,6 +58,11 @@ class VariableHandler
 
    public:
 	std::function<void(const std::string&, const std::string&)> renameCallback;
+
+   private:
+	bool detectCircularDependencyRecursive(const std::string& varName, const std::vector<std::string>& dependencies,
+											std::set<std::string>& visited, std::set<std::string>& recursionStack,
+											std::vector<std::string>& path);
 
    private:
 	VariableMap variableMap;

@@ -73,6 +73,15 @@ void ViewerDataHandler::updateVariables(double timestamp, const std::unordered_m
 			csvEntry[var->getName()] = var->transformToDouble();
 	}
 
+	variableHandler->updateVirtualVariables(timestamp);
+
+	/* add virtual variable values to CSV entry */
+	for (std::shared_ptr<Variable> var : *variableHandler)
+	{
+		if (var->isVirtual())
+			csvEntry[var->getName()] = var->getValue();
+	}
+
 	for (auto plot : *plotHandler)
 	{
 		std::lock_guard<std::mutex> lock(*mtx);
@@ -227,6 +236,47 @@ void ViewerDataHandler::createSampleList()
 		}
 
 		variable->setValue(0.0);
+	}
+
+	/* scan for dependencies of virtual variables that are being plotted */
+	std::set<std::string> plottedVirtualVariables;
+	for (auto& [name, plotElem] : *plotGroupHandler->getActiveGroup())
+	{
+		auto plot = plotElem.plot;
+		if (!plotElem.visibility) continue;
+
+		for (auto& [name, ser] : plot->getSeriesMap())
+		{
+			if (ser->visible && ser->var->isVirtual())
+			{
+				plottedVirtualVariables.insert(ser->var->getName());
+			}
+		}
+	}
+
+	/* add dependencies of plotted virtual variables to sample list */
+	for (const auto& virtualVarName : plottedVirtualVariables)
+	{
+		auto virtualVar = variableHandler->getVariable(virtualVarName);
+		if (virtualVar && virtualVar->isVirtual())
+		{
+			const auto& dependencies = virtualVar->getVirtual().dependencies;
+			for (const auto& depName : dependencies)
+			{
+				if (depName == "time") continue; // Time is not sampled from memory
+				
+				if (variableHandler->contains(depName))
+				{
+					auto depVar = variableHandler->getVariable(depName);
+					if (!depVar->isVirtual()) // Only sample regular variables
+					{
+						std::pair<uint32_t, uint8_t> newElement = {depVar->getAddress(), depVar->getSize()};
+						if (!checkIfElementExists(newElement))
+							sampleList.push_back(newElement);
+					}
+				}
+			}
+		}
 	}
 
 	/* mark actively sampled varaibles */
