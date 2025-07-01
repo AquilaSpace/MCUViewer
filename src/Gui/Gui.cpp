@@ -95,7 +95,7 @@ void Gui::mainThread(std::string externalPath)
 	else
 		io.Fonts->AddFontDefault(&cfg);
 #endif
-	
+
 	io.FontGlobalScale = 1.0f;
 	ImGui::GetPlatformIO().Platform_LocaleDecimalPoint = *localeconv()->decimal_point;
 
@@ -139,14 +139,14 @@ void Gui::mainThread(std::string externalPath)
 	{
 		if (glfwGetWindowAttrib(window, GLFW_ICONIFIED))
 		{
-			glfwWaitEvents();
+			glfwWaitEventsTimeout(0.1);	 // Wait max 100ms instead of indefinitely
 			continue;
 		}
 
 		if (glfwGetWindowAttrib(window, GLFW_FOCUSED) || (traceDataHandler->getState() == DataHandlerBase::State::RUN) || (viewerDataHandler->getState() == DataHandlerBase::State::RUN))
 			glfwSwapInterval(1);
 		else
-			glfwSwapInterval(4);
+			glfwSwapInterval(2);  // Reduce from 4 to 2 to keep app more responsive
 
 		glfwSetWindowTitle(window, (std::string("MCUViewer - Special Edition  ") + projectConfigPath).c_str());
 		glfwPollEvents();
@@ -197,48 +197,50 @@ void Gui::mainThread(std::string externalPath)
 			activeView = ActiveViewType::VarViewer;
 			drawAcqusitionSettingsWindow(activeView);
 			drawStartButton(viewerDataHandler);
-			
+
 			// Calculate available space for sidebar content
 			float windowHeight = ImGui::GetWindowSize().y;
 			float currentY = ImGui::GetCursorPosY();
-			float availableHeight = windowHeight - currentY - 20; // 20px padding
-			
+			float availableHeight = windowHeight - currentY - 200;	// 20px padding
+
 			// Ensure plots tree gets minimum 30% of sidebar height
 			float minPlotsTreeHeight = availableHeight * 0.3f;
 			static float plotsTreeHeight = std::max(200.0f * GuiHelper::contentScale, minPlotsTreeHeight);
 			plotsTreeHeight = std::max(plotsTreeHeight, minPlotsTreeHeight);
-			
+
 			// Calculate variable table height
-			float varTableHeight = availableHeight - plotsTreeHeight - 8; // 8px for splitter
-			varTableHeight = std::max(varTableHeight, 150.0f * GuiHelper::contentScale); // Minimum var table height
-			
+			float varTableHeight = availableHeight - plotsTreeHeight - 20;				  // 20px for splitter
+			varTableHeight = std::max(varTableHeight, 150.0f * GuiHelper::contentScale);  // Minimum var table height
+
 			// Adjust plots tree height if variable table needs more space
-			if (varTableHeight < 150.0f * GuiHelper::contentScale) {
+			if (varTableHeight < 150.0f * GuiHelper::contentScale)
+			{
 				varTableHeight = 150.0f * GuiHelper::contentScale;
 				plotsTreeHeight = availableHeight - varTableHeight - 8;
 			}
-			
+
 			// Draw variable table in top section of sidebar
 			variableTable->drawWithHeight(varTableHeight);
-			
+
 			// Draw draggable splitter between variables and plots tree
 			ImGui::Button("##sidebar_splitter", ImVec2(-1, 8));
-			if (ImGui::IsItemActive()) {
+			if (ImGui::IsItemActive())
+			{
 				float delta = ImGui::GetIO().MouseDelta.y;
-				plotsTreeHeight -= delta; // Decrease plots tree height when dragging up
+				plotsTreeHeight -= delta;  // Decrease plots tree height when dragging up
 				// Enforce constraints
 				plotsTreeHeight = std::max(plotsTreeHeight, minPlotsTreeHeight);
 				plotsTreeHeight = std::min(plotsTreeHeight, availableHeight - 150.0f * GuiHelper::contentScale - 8);
 			}
 			ImGui::SetItemTooltip("Drag to resize");
-			
+
 			// Draw plots tree in bottom section of sidebar with calculated height
 			ImGui::BeginChild("PlotsTreeSection", ImVec2(-1, plotsTreeHeight), false, ImGuiWindowFlags_None);
 			plotsTree->draw();
 			ImGui::EndChild();
-			
+
 			plotEditWindow->draw();
-			
+
 			// Draw main plots window (separate from sidebar)
 			ImGui::SetNextWindowClass(&window_class);
 			if (ImGui::Begin("Plots"))
@@ -531,7 +533,7 @@ bool Gui::openProject(std::string externalPath)
 
 		// Cache the successfully opened project path
 		saveLastProjectPath(path);
-		
+
 		return true;
 	}
 	return false;
@@ -582,23 +584,23 @@ void Gui::promptReopenLastProject()
 	{
 		std::string lastPath = getLastProjectPath();
 		std::string filename = std::filesystem::path(lastPath).filename().string();
-		
+
 		ImGui::Text("Reopen last project: %s?", filename.c_str());
-		
+
 		if (ImGui::Button("Yes"))
 		{
 			openProject(lastPath);
 			showReopenProjectPrompt = false;
 			ImGui::CloseCurrentPopup();
 		}
-		
+
 		ImGui::SameLine();
 		if (ImGui::Button("No"))
 		{
 			showReopenProjectPrompt = false;
 			ImGui::CloseCurrentPopup();
 		}
-		
+
 		ImGui::EndPopup();
 	}
 }

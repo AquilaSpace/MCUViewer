@@ -28,7 +28,7 @@ class VariableTableWindow
 
 	void draw()
 	{
-		drawWithHeight(300 * GuiHelper::contentScale); // Default height
+		drawWithHeight(300 * GuiHelper::contentScale);	// Default height
 	}
 
 	void drawWithHeight(float tableHeight)
@@ -94,7 +94,7 @@ class VariableTableWindow
 		importVariablesWindow->draw();
 	}
 
-private:
+   private:
 	struct TreeNode
 	{
 		std::map<std::string, std::shared_ptr<TreeNode>> children;
@@ -216,10 +216,13 @@ private:
 
 		// Get current variable count to detect changes
 		size_t currentVariableCount = 0;
-		for (auto var : *variableHandler) { currentVariableCount++; }
+		for (auto var : *variableHandler)
+		{
+			currentVariableCount++;
+		}
 
 		// Rebuild tree if search changed, variable list changed, or first time
-		if (lastSearchString != search || !rootNode || rebuildTree || !treeBuilt || 
+		if (lastSearchString != search || !rootNode || rebuildTree || !treeBuilt ||
 			lastVariableCount != currentVariableCount)
 		{
 			rootNode = buildVariableTree(search);
@@ -269,7 +272,7 @@ private:
 		for (std::shared_ptr<Variable> var : *variableHandler)
 		{
 			std::string name = var->getName();
-			
+
 			// Apply search filter
 			if (!searchFilter.empty() && toLower(name).find(toLower(searchFilter)) == std::string::npos)
 				continue;
@@ -277,7 +280,7 @@ private:
 			// Parse namespace hierarchy (split by :: or .)
 			std::vector<std::string> parts;
 			std::string current = name;
-			
+
 			// Replace :: with . for consistent parsing
 			size_t pos = 0;
 			while ((pos = current.find("::", pos)) != std::string::npos)
@@ -285,7 +288,7 @@ private:
 				current.replace(pos, 2, ".");
 				pos += 1;
 			}
-			
+
 			// Split by . to get hierarchy levels
 			std::istringstream iss(current);
 			std::string part;
@@ -330,10 +333,10 @@ private:
 
 			// Group header with collapsible tree
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-			
+
 			// Use a unique ID for this tree node to maintain state
 			std::string nodeId = std::string("##tree_") + groupName + "_" + std::to_string(depth);
-			
+
 			// Handle expand/collapse all
 			if (expandAll)
 			{
@@ -350,11 +353,11 @@ private:
 			}
 
 			bool nodeOpen = ImGui::TreeNodeEx((groupName + nodeId).c_str(), flags, "%s", groupName.c_str());
-			
+
 			ImGui::TableSetColumnIndex(1);
-			ImGui::TextUnformatted(""); // Empty address column for groups
+			ImGui::TextUnformatted("");	 // Empty address column for groups
 			ImGui::TableSetColumnIndex(2);
-			ImGui::TextUnformatted(""); // Empty type column for groups
+			ImGui::TextUnformatted("");	 // Empty type column for groups
 
 			if (nodeOpen)
 			{
@@ -493,8 +496,15 @@ private:
 		else
 		{
 			snprintf(buttonText, textSize, "Update variable addresses");
-			if (refreshThread.valid() && !refreshThread.get())
-				popup.show("Error!", "Update error. Please check the *.elf file path!", 2.0f);
+			if (refreshThread.valid())
+			{
+				// Non-blocking check for result
+				if (refreshThread.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+				{
+					if (!refreshThread.get())
+						popup.show("Error!", "Update error. Please check the *.elf file path!", 2.0f);
+				}
+			}
 		}
 
 		ImGui::BeginDisabled(projectElfPath->empty());
@@ -589,12 +599,12 @@ private:
 	std::filesystem::file_time_type lastModifiedTime = std::filesystem::file_time_type::clock::now();
 
 	bool performVariablesUpdate = false;
-	
+
 	// Tree view state
 	bool expandAll = false;
 	bool collapseAll = false;
 	bool rebuildTree = true;
-	
+
 	// Variable selection state
 	std::set<std::string> selection;
 };

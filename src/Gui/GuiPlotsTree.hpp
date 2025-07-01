@@ -21,7 +21,7 @@ class PlotsTree
 	}
 	void draw()
 	{
-		const uint32_t windowHeight = 350 * GuiHelper::contentScale;
+		const uint32_t windowHeight = ImGui::GetContentRegionAvail().y - (150 * GuiHelper::contentScale);
 		static std::string selectedGroup = "";
 		static std::string selectedPlot = "";
 		std::optional<std::string> plotNameToDelete = {};
@@ -173,7 +173,7 @@ class PlotsTree
 
 		/* Var list within plot*/
 		ImGui::PushID("list");
-		if (ImGui::BeginListBox("##", ImVec2(-1, windowHeight - 100 * GuiHelper::contentScale)))
+		if (ImGui::BeginListBox("##", ImVec2(-1, windowHeight - 150 * GuiHelper::contentScale)))
 		{
 			std::optional<std::string> seriesNameToDelete = {};
 			for (auto& [name, ser] : plt->getSeriesMap())

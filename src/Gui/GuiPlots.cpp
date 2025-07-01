@@ -19,7 +19,6 @@ void Gui::dragAndDropPlot(std::shared_ptr<Plot> plot)
 void Gui::drawPlots()
 {
 	uint32_t tablePlots = 0;
-	ImVec2 initialCursorPos = ImGui::GetCursorPos();
 	auto activeGroup = plotGroupHandler->getActiveGroup();
 
 	for (auto [name, plotElem] : *activeGroup)
@@ -39,10 +38,7 @@ void Gui::drawPlots()
 	uint32_t curveBarPlotsCnt = activeGroup->getVisiblePlotsCount() - tablePlots;
 	uint32_t row = curveBarPlotsCnt > 0 ? curveBarPlotsCnt : 1;
 
-	const float remainingSpace = (ImGui::GetWindowPos().y + ImGui::GetWindowSize().y) - (ImGui::GetCursorPos().y + initialCursorPos.y);
 	ImVec2 plotSize(-1, -1);
-	if (remainingSpace < 300)
-		plotSize.y = 300;
 
 	if (ImPlot::BeginSubplots("##subplos", row, 1, plotSize, 0))
 	{
@@ -80,16 +76,22 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 		if (viewerDataHandler->getState() == DataHandlerBase::State::RUN)
 		{
 			// For XY plots, check each axis independently
-			if (plot->xAxisLimits.autoFit) {
+			if (plot->xAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxis(ImAxis_X1, xLabel.c_str(), ImPlotAxisFlags_AutoFit);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxis(ImAxis_X1, xLabel.c_str(), 0);
 				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
 			}
-			
-			if (plot->yAxisLimits.autoFit) {
+
+			if (plot->yAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxis(ImAxis_Y1, NULL, 0);
 				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
 			}
@@ -97,16 +99,22 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 		else
 		{
 			ImPlot::SetupAxes(xLabel.c_str(), NULL, 0, 0);
-			
-			if (plot->xAxisLimits.autoFit) {
+
+			if (plot->xAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
 			}
-			
-			if (plot->yAxisLimits.autoFit) {
+
+			if (plot->yAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
 			}
 		}
@@ -123,7 +131,8 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 				continue;
 			serPtr->buffer->copyData();
 			// Copy X-axis data if series has its own X-axis variable
-			if (serPtr->xAxisVariable && serPtr->xAxisBuffer) {
+			if (serPtr->xAxisVariable && serPtr->xAxisBuffer)
+			{
 				serPtr->xAxisBuffer->copyData();
 			}
 		}
@@ -138,21 +147,25 @@ void Gui::drawPlotXY(std::shared_ptr<Plot> plot)
 
 			ImPlot::SetNextLineStyle(ImVec4(serPtr->var->getColor().r, serPtr->var->getColor().g, serPtr->var->getColor().b, 1.0f));
 			ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 2.0f);
-			
+
 			// Use series-specific X-axis data if available, otherwise fall back to plot default
-			if (serPtr->xAxisVariable && serPtr->xAxisBuffer && serPtr->xAxisBuffer->getSize() > 0) {
+			if (serPtr->xAxisVariable && serPtr->xAxisBuffer && serPtr->xAxisBuffer->getSize() > 0)
+			{
 				// Use the plot-level size and offset for consistency across all series
 				// This ensures all series are synchronized to the same time base and prevents
 				// circular buffer wraparound artifacts between series
 				uint32_t plotSize = size;
 				uint32_t plotOffset = offset;
-				
+
 				// Verify that the series X-axis buffer has enough data to match plot timing
-				if (serPtr->xAxisBuffer->getSize() >= plotSize) {
+				if (serPtr->xAxisBuffer->getSize() >= plotSize)
+				{
 					ImPlot::PlotLine(key.c_str(), serPtr->xAxisBuffer->getFirstElementCopy(), serPtr->buffer->getFirstElementCopy(), plotSize, ImPlotLineFlags_None, plotOffset, sizeof(double));
 				}
 				// If series X-axis buffer doesn't have enough data, skip this frame
-			} else {
+			}
+			else
+			{
 				// Fall back to plot-level X-axis (time or plot X-axis variable)
 				ImPlot::PlotLine(key.c_str(), time.getFirstElementCopy(), serPtr->buffer->getFirstElementCopy(), size, ImPlotLineFlags_None, offset, sizeof(double));
 			}
@@ -172,44 +185,57 @@ void Gui::drawPlotCurve(std::shared_ptr<Plot> plot)
 		if (viewerDataHandler->getState() == DataHandlerBase::State::RUN)
 		{
 			ViewerDataHandler::Settings settings = viewerDataHandler->getSettings();
-			
+
 			// Setup Y-axis first based on its auto-fit setting
-			if (plot->yAxisLimits.autoFit) {
+			if (plot->yAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxis(ImAxis_Y1, NULL, ImPlotAxisFlags_AutoFit);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxis(ImAxis_Y1, NULL, 0);
 			}
-			
+
 			// Setup X-axis based on its auto-fit setting
-			if (plot->xAxisLimits.autoFit) {
+			if (plot->xAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
 				const double viewportWidth = (1.0 / viewerDataHandler->getAverageSamplingFrequency()) * settings.maxViewportPoints;
 				const double min = *time.getLastElement() < viewportWidth ? 0.0f : *time.getLastElement() - viewportWidth;
 				const double max = min == 0.0f ? *time.getLastElement() : min + viewportWidth;
 				ImPlot::SetupAxisLimits(ImAxis_X1, min, max, ImPlotCond_Always);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxis(ImAxis_X1, "time[s]", 0);
 				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
 			}
-			
+
 			// Apply Y-axis limits if not auto-fit
-			if (!plot->yAxisLimits.autoFit) {
+			if (!plot->yAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
 			}
 		}
 		else
 		{
 			ImPlot::SetupAxes("time[s]", NULL, 0, 0);
-			
-			if (plot->xAxisLimits.autoFit) {
+
+			if (plot->xAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxisLimits(ImAxis_X1, -1, 10, ImPlotCond_Once);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxisLimits(ImAxis_X1, plot->xAxisLimits.min, plot->xAxisLimits.max, ImPlotCond_Always);
 			}
-			
-			if (plot->yAxisLimits.autoFit) {
+
+			if (plot->yAxisLimits.autoFit)
+			{
 				ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 0.1, ImPlotCond_Once);
-			} else {
+			}
+			else
+			{
 				ImPlot::SetupAxisLimits(ImAxis_Y1, plot->yAxisLimits.min, plot->yAxisLimits.max, ImPlotCond_Always);
 			}
 		}

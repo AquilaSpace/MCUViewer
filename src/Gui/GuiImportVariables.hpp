@@ -13,25 +13,30 @@
 class ImportVariablesWindow
 {
    public:
-	ImportVariablesWindow(GdbParser* parser, std::string* projectElfPath, std::string* projectConfigPath, VariableHandler* variableHandler) 
-		: parser(parser), projectElfPath(projectElfPath), projectConfigPath(projectConfigPath), variableHandler(variableHandler),
-		  treeView(
-			// Name extractor
-			[](const std::pair<const std::string, GdbParser::VariableData>* var) { return var->first; },
-			// Address extractor  
-			[](const std::pair<const std::string, GdbParser::VariableData>* var) { return "0x" + GuiHelper::intToHexString(var->second.address); },
-			// Selection checker
-			[this](const std::pair<const std::string, GdbParser::VariableData>* var) { return this->currentSelection.contains(var->first); },
-			// Selection toggler
-			[this](const std::pair<const std::string, GdbParser::VariableData>* var, bool selected) {
-				if (selected) this->currentSelection[var->first] = var->second.address;
-				else this->currentSelection.erase(var->first);
-			},
-			// Item filter
-			[](const std::pair<const std::string, GdbParser::VariableData>* var, const std::string& filter) {
-				return toLower(var->first).find(toLower(filter)) != std::string::npos;
-			}
-		  )
+	ImportVariablesWindow(GdbParser* parser, std::string* projectElfPath, std::string* projectConfigPath, VariableHandler* variableHandler)
+		: parser(parser), projectElfPath(projectElfPath), projectConfigPath(projectConfigPath), variableHandler(variableHandler), treeView(
+																																	  // Name extractor
+																																	  [](const std::pair<const std::string, GdbParser::VariableData>* var)
+																																	  { return var->first; },
+																																	  // Address extractor
+																																	  [](const std::pair<const std::string, GdbParser::VariableData>* var)
+																																	  { return "0x" + GuiHelper::intToHexString(var->second.address); },
+																																	  // Selection checker
+																																	  [this](const std::pair<const std::string, GdbParser::VariableData>* var)
+																																	  { return this->currentSelection.contains(var->first); },
+																																	  // Selection toggler
+																																	  [this](const std::pair<const std::string, GdbParser::VariableData>* var, bool selected)
+																																	  {
+																																		  if (selected)
+																																			  this->currentSelection[var->first] = var->second.address;
+																																		  else
+																																			  this->currentSelection.erase(var->first);
+																																	  },
+																																	  // Item filter
+																																	  [](const std::pair<const std::string, GdbParser::VariableData>* var, const std::string& filter)
+																																	  {
+																																		  return toLower(var->first).find(toLower(filter)) != std::string::npos;
+																																	  })
 	{
 	}
 
@@ -64,13 +69,17 @@ class ImportVariablesWindow
 			else
 			{
 				if (refreshThread.valid())
-			{
-				if(!refreshThread.get())
-					acqusitionErrorPopup.show("Error!", "Update error. Please check the *.elf file path!", 2.0f);
-				
-				varsForDisplay = parser->getParsedData();
-				treeView.rebuildTree();
-			}
+				{
+					// Non-blocking check for result
+					if (refreshThread.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+					{
+						if (!refreshThread.get())
+							acqusitionErrorPopup.show("Error!", "Update error. Please check the *.elf file path!", 2.0f);
+
+						varsForDisplay = parser->getParsedData();
+						treeView.rebuildTree();
+					}
+				}
 				snprintf(buttonText, 30, "Refresh");
 			}
 
@@ -81,16 +90,19 @@ class ImportVariablesWindow
 			if (ImGui::Button(buttonText, ImVec2(refreshButtonWidth, buttonHeight)) || shouldUpdateOnOpen)
 			{
 				stopRequested = false;
-				refreshThread = std::async(std::launch::async, &GdbParser::parse, parser, GuiHelper::convertProjectPathToAbsolute(projectElfPath, projectConfigPath),  std::ref(stopRequested));
+				refreshThread = std::async(std::launch::async, &GdbParser::parse, parser, GuiHelper::convertProjectPathToAbsolute(projectElfPath, projectConfigPath), std::ref(stopRequested));
 				shouldUpdateOnOpen = false;
 			}
 
 			ImGui::SameLine();
 			if (ImGui::Button(expandAllState ? "Collapse All" : "Expand All", ImVec2(expandButtonWidth, buttonHeight)))
 			{
-				if (expandAllState) {
+				if (expandAllState)
+				{
 					treeView.collapseAll();
-				} else {
+				}
+				else
+				{
 					treeView.expandAll();
 				}
 				expandAllState = !expandAllState;
@@ -104,19 +116,20 @@ class ImportVariablesWindow
 			{
 				ImGui::SetKeyboardFocusHere(-1);
 			}
-			
+
 			// Search change detection is handled automatically by the tree view
 
 			ImGui::Spacing();
-			
+
 			// Convert map to vector of pointers for tree view
 			std::vector<const std::pair<const std::string, GdbParser::VariableData>*> variablePtrs;
-			for (const auto& var : varsForDisplay) {
+			for (const auto& var : varsForDisplay)
+			{
 				variablePtrs.push_back(&var);
 			}
-			
+
 			treeView.draw(variablePtrs, search, ImGui::GetContentRegionAvail().y - 60 * GuiHelper::contentScale, false);
-			
+
 			std::string importBtnName{"Import ("};
 			importBtnName += std::to_string(currentSelection.size()) + std::string(")");
 
@@ -158,7 +171,7 @@ class ImportVariablesWindow
 
 				if (refreshThread.valid())
 					refreshThread.wait();
-				
+
 				showImportVariablesWindow = false;
 				ImGui::CloseCurrentPopup();
 			}
@@ -196,9 +209,9 @@ class ImportVariablesWindow
 	std::atomic<bool> stopRequested = false;
 	bool expandAllState = false;
 	size_t lastVarCount = 0;
-    std::map<std::string, GdbParser::VariableData> varsForDisplay;
-	
-	// Shared tree view component  
+	std::map<std::string, GdbParser::VariableData> varsForDisplay;
+
+	// Shared tree view component
 	VariableTreeView<const std::pair<const std::string, GdbParser::VariableData>*> treeView;
 	// Current selection for import
 	std::unordered_map<std::string, uint32_t> currentSelection;
